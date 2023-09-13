@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <assert.h>
 #include "imageloader.h"
 
 //Determines what color the cell at the given row/col should be. This function allocates space for a new Color.
@@ -23,6 +24,66 @@
 Color *evaluateOneCell(Image *image, int row, int col, uint32_t rule)
 {
 	//YOUR CODE HERE
+    Color *color = (Color*) malloc(sizeof(Color));
+    if (color == NULL) {
+        printf("fail to alloc memory.\n");
+        return NULL;
+    }
+    color->B = 0;
+    color->R = 0;
+    color->G = 0;
+
+    for(int i = 0; i < 8; i++) {
+        uint32_t stateRed = (image->image[row][col].R >> i) & 1;
+        uint32_t stateBlue = (image->image[row][col].B >> i) & 1;
+        uint32_t stateGreen = (image->image[row][col].G >> i) & 1;
+        int neighborAlive = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) continue;
+                int curRow = (row + dx + image->rows) % image->rows;
+                int curCol = (col + dy + image->cols) % image->cols;
+                if (((image->image[curRow][curCol].R) >> i) & 1) {
+                    neighborAlive++;
+                }
+            }
+        }
+        if (stateRed)
+            color->R |= ((1) & (rule >> (neighborAlive + 9))) << i;
+        else 
+            color->R |= ((1) & (rule >>  (neighborAlive))) << i;
+        neighborAlive = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) continue;
+                int curRow = (row + dx + image->rows) % image->rows;
+                int curCol = (col + dy + image->cols) % image->cols;
+                if (((image->image[curRow][curCol].B) >> i) & 1) {
+                    neighborAlive++;
+                }
+            }
+        }
+        if (stateBlue)
+            color->B |= ((1) & (rule >> (neighborAlive + 9))) << i;
+        else 
+            color->B |= ((1) & (rule >>  (neighborAlive))) << i;
+        neighborAlive = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) continue;
+                int curRow = (row + dx + image->rows) % image->rows;
+                int curCol = (col + dy + image->cols) % image->cols;
+                if (((image->image[curRow][curCol].G) >> i) & 1) {
+                    neighborAlive++;
+                }
+            }
+        }
+        if (stateGreen)
+            color->G |= ((1) & (rule >> (neighborAlive + 9))) << i;
+        else 
+            color->G |= ((1) & (rule >>  (neighborAlive))) << i;
+    }
+    return color;
 }
 
 //The main body of Life; given an image and a rule, computes one iteration of the Game of Life.
@@ -30,6 +91,30 @@ Color *evaluateOneCell(Image *image, int row, int col, uint32_t rule)
 Image *life(Image *image, uint32_t rule)
 {
 	//YOUR CODE HERE
+    Image *steganoImage = (Image*) malloc(sizeof(Image));
+    steganoImage->cols = image->cols;
+    steganoImage->rows = image->rows;
+    steganoImage->image = malloc(image->rows * sizeof(Color*)); 
+    if (steganoImage->image == NULL) {
+        printf("fail to alloc memory.\n");
+        return NULL;
+    }
+    for (uint32_t i = 0; i < image->rows; i++) {
+		steganoImage->image[i] = (Color*)malloc(image->cols * sizeof(Color));
+        if (steganoImage->image[i] == NULL) {
+            printf("fail to alloc memory.\n");
+            return NULL;
+        }
+        for (uint32_t j = 0; j < image->cols; j++) {
+            Color *undertune = evaluateOneCell(image, i, j, rule);
+            assert(undertune != NULL);
+            steganoImage->image[i][j].R = undertune->R;
+            steganoImage->image[i][j].G = undertune->G;
+            steganoImage->image[i][j].B = undertune->B;
+            free(undertune);
+        }
+    }
+    return steganoImage;
 }
 
 /*
@@ -50,4 +135,13 @@ You may find it useful to copy the code from steganography.c, to start.
 int main(int argc, char **argv)
 {
 	//YOUR CODE HERE
+    Image *image = readData(argv[1]);
+    if (!image) {
+        return -1;
+    }
+    uint32_t rule = strtol(argv[2], NULL, 16);
+    Image *steganofile = life(image, rule);
+    writeData(steganofile);
+    freeImage(steganofile);
+    freeImage(image);
 }
